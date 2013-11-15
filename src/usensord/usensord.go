@@ -22,11 +22,11 @@
 package main
 
 import (
-	"haptic"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"launchpad.net/usensord/haptic"
 )
 
 var logger *log.Logger
