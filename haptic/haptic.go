@@ -21,25 +21,23 @@
 
 package haptic
 
-import  (
+import (
+	"fmt"
 	"launchpad.net/~jamesh/go-dbus/trunk"
 	"log"
 	"os"
-	"fmt"
 )
 
 var (
-	err error
-	conn *dbus.Connection
+	err    error
+	conn   *dbus.Connection
 	logger *log.Logger
 )
 
-
 const (
 	HAPTIC_DBUS_IFACE = "com.canonical.usensord.haptic"
-	HAPTIC_DEVICE = "/sys/class/timed_output/vibrator/enable"
+	HAPTIC_DEVICE     = "/sys/class/timed_output/vibrator/enable"
 )
-
 
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 
@@ -68,26 +66,24 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 
 }
 
-func On (duration uint32) (error) {
+func On(duration uint32) error {
 
 	logger.Println("In On function")
 	fi, err := os.Create(HAPTIC_DEVICE)
-	if err != nil { 
-		return err 
+	if err != nil {
+		return err
 	}
 
-        if _, err := fi.WriteString(fmt.Sprintf("%d",duration)); err != nil {
-            return err
-        }
+	if _, err := fi.WriteString(fmt.Sprintf("%d", duration)); err != nil {
+		return err
+	}
 
 	fi.Close()
 	return nil
 }
 
-
-
 /*Initialize Haptic service and register on the bus*/
-func Init(log *log.Logger) (error) {
+func Init(log *log.Logger) error {
 
 	logger = log
 
@@ -111,4 +107,3 @@ func Init(log *log.Logger) (error) {
 	return nil
 
 }
-

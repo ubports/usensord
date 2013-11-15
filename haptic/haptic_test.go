@@ -21,7 +21,6 @@
 
 package haptic
 
-
 import (
 	"launchpad.net/~jamesh/go-dbus/trunk"
 	"log"
@@ -29,10 +28,9 @@ import (
 	"testing"
 )
 
-
 func TestHapticDBUS(t *testing.T) {
 
-	logger = log.New(os.Stderr, "uSensord: ", log.Ldate | log.Ltime | log.Lshortfile)
+	logger = log.New(os.Stderr, "uSensord: ", log.Ldate|log.Ltime|log.Lshortfile)
 	var conn *dbus.Connection
 
 	if conn, err = dbus.Connect(dbus.SessionBus); err != nil {
@@ -45,9 +43,8 @@ func TestHapticDBUS(t *testing.T) {
 		t.Errorf("Error: %s\n", err)
 	}
 
-
 	obj := conn.Object("com.canonical.usensord.haptic", "/com/canonical/usensord/haptic")
-	
+
 	reply, err := obj.Call("com.canonical.usensord.haptic", "On", uint32(10))
 
 	if err != nil || reply == nil {
@@ -59,5 +56,5 @@ func TestHapticDBUS(t *testing.T) {
 	if err != nil || reply == nil {
 		t.Errorf("Notification error: %s", err)
 	}
-	
+
 }

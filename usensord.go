@@ -22,25 +22,21 @@
 package main
 
 import (
+	"launchpad.net/usensord/haptic"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"launchpad.net/usensord/haptic"
 )
 
 var logger *log.Logger
 var done = false
-
 
 type Mainloop struct {
 	sigchan  chan os.Signal
 	termchan chan int
 	Bindings map[os.Signal]func()
 }
-
-
-
 
 /*
 Start the mainloop.
@@ -73,7 +69,6 @@ func (m *Mainloop) Stop() {
 	return
 }
 
-
 func HupHandler() {
 
 	syscall.Exit(1)
@@ -85,11 +80,9 @@ func IntHandler() {
 	syscall.Exit(1)
 }
 
-
 func init() {
-	logger = log.New(os.Stderr, "uSensord: ", log.Ldate | log.Ltime | log.Lshortfile)
+	logger = log.New(os.Stderr, "uSensord: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
-
 
 func main() {
 
@@ -104,8 +97,6 @@ func main() {
 		sigchan:  make(chan os.Signal),
 		termchan: make(chan int),
 		Bindings: make(map[os.Signal]func())}
-
-
 
 	m.Bindings[syscall.SIGHUP] = HupHandler
 	m.Bindings[syscall.SIGINT] = IntHandler
