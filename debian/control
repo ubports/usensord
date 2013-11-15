@@ -1,0 +1,13 @@
+Source: usensord
+Section: devel
+Priority: extra
+Maintainer: Michael Frey <michael.frey@canonical.com>
+Build-Depends: debhelper (>= 7.0.50~), golang-go
+Standards-Version: 3.9.1
+Homepage: http://launchpad.net/usensord
+
+Package: usenord
+Architecture: amd64 i386 armel
+Depends: ${misc:Depends}
+Description: Ubuntu Touch Sensor Service
+ Daemon that provides standard access to sensors.
