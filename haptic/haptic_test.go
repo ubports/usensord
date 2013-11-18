@@ -48,6 +48,7 @@ func TestHapticDBUS(t *testing.T) {
 	reply, err := obj.Call("com.canonical.usensord.haptic", "On", uint32(10))
 
 	if err != nil || reply == nil {
+		logger.Println("FAILED")
 		t.Errorf("Notification error: %s", err)
 	}
 

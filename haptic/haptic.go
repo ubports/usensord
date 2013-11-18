@@ -42,6 +42,7 @@ const (
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 
 	var duration uint32
+	var reply *dbus.Message
 
 	for msg := range msgChan {
 		switch {
@@ -49,11 +50,19 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 			msg.Args(&duration)
 			logger.Printf("Received On() method call %d", duration)
 			err = On(duration)
-			reply := dbus.NewMethodReturnMessage(msg)
+			if err == nil {
+				reply = dbus.NewMethodReturnMessage(msg)
+			} else {
+				reply = dbus.NewMethodReturnMessage(nil)
+			}
 			conn.Send(reply)
 		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "Off":
 			logger.Println("Received Off() method call")
-			reply := dbus.NewMethodReturnMessage(msg)
+			if err == nil {
+				reply = dbus.NewMethodReturnMessage(msg)
+			} else {
+				reply = dbus.NewMethodReturnMessage(nil)
+			}
 			conn.Send(reply)
 		default:
 			logger.Println("Received unkown method call")
@@ -71,10 +80,12 @@ func On(duration uint32) error {
 	logger.Println("In On function")
 	fi, err := os.Create(HAPTIC_DEVICE)
 	if err != nil {
+		logger.Println("Error opening haptic device")
 		return err
 	}
 
 	if _, err := fi.WriteString(fmt.Sprintf("%d", duration)); err != nil {
+		fi.Close()
 		return err
 	}
 
