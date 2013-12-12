@@ -1,0 +1,6 @@
+description		"Starts the usensord service which provides haptics support"
+
+start on android
+stop on runlevel [06]
+
+exec usensord
