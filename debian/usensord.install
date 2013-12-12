@@ -1,1 +1,2 @@
 usr/bin
+debian/usensord.conf /usr/share/upstart/sessions/
