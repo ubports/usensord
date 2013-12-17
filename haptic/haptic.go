@@ -23,7 +23,7 @@ package haptic
 
 import (
 	"fmt"
-	"launchpad.net/~jamesh/go-dbus/trunk"
+	"launchpad.net/usensord/dbus"
 	"log"
 	"os"
 )

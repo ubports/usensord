@@ -1,0 +1,25 @@
+Source: usensord
+Section: utils
+Priority: extra
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Build-Depends: debhelper (>= 9), dh-golang, golang-go
+Standards-Version: 3.9.4
+Homepage: http://launchpad.net/usensord
+Vcs-Bzr: lp:usensord
+Vcs-Browser: http://bazaar.launchpad.net/~phablet-team/usensord/trunk/files
+
+Package: usensord
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Ubuntu Touch Sensor Service
+ Daemon that provides standard access to sensors for Ubuntu Touch
+ over DBus.
+
+Package: golang-usensord-dev
+Architecture: all
+Depends: ${misc:Depends}
+Description: Ubuntu Touch Sensor Service development package
+ Daemon that provides standard access to sensors for Ubuntu Touch
+ over DBus.
+ .
+ This package provides the sources of the usensord go package.
