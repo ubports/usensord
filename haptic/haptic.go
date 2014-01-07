@@ -43,6 +43,7 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 
 	var duration uint32
 	var reply *dbus.Message
+	var pattern  []uint32
 
 	for msg := range msgChan {
 		switch {
@@ -50,6 +51,16 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 			msg.Args(&duration)
 			logger.Printf("Received On() method call %d", duration)
 			err = On(duration)
+			if err == nil {
+				reply = dbus.NewMethodReturnMessage(msg)
+			} else {
+				reply = dbus.NewMethodReturnMessage(nil)
+			}
+			conn.Send(reply)
+		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "Pattern":
+			msg.Args(&pattern)
+			logger.Printf("Received Pattern() method call %d", duration)
+			err = Pattern(pattern)
 			if err == nil {
 				reply = dbus.NewMethodReturnMessage(msg)
 			} else {
@@ -91,6 +102,27 @@ func On(duration uint32) error {
 
 	fi.Close()
 	return nil
+}
+
+func Pattern(duration []uint32) error {
+
+	var err error = nil
+	var x int = 0
+
+	for _, t := range duration {
+		if (x == 0) {
+			err = On (uint32(t))
+			x = 1
+			if (err != nil) {
+				return err
+			}
+		} else {
+			time.Sleep (time.Duration(t) * time.Millisecond)
+			x = 0
+		}
+	}
+
+	return err
 }
 
 /*Initialize Haptic service and register on the bus*/
