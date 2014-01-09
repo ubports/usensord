@@ -28,34 +28,38 @@ import (
 	"testing"
 )
 
-func TestHapticDBUS(t *testing.T) {
-
+func init() {
 	logger = log.New(os.Stderr, "uSensord: ", log.Ldate|log.Ltime|log.Lshortfile)
-	var conn *dbus.Connection
-
-	if conn, err = dbus.Connect(dbus.SessionBus); err != nil {
-		t.Errorf("Connection error:", err)
+	var err error
+	conn, err = dbus.Connect(dbus.SessionBus)
+	if err != nil {
+		logger.Fatal("Connection error:", err)
 	}
 
 	err = Init(logger)
-
 	if err != nil {
-		t.Errorf("Error: %s\n", err)
+		logger.Fatal("Error: %s\n", err)
 	}
+}
 
+func TestHapticDBUS(t *testing.T) {
 	obj := conn.Object("com.canonical.usensord.haptic", "/com/canonical/usensord/haptic")
 
-	reply, err := obj.Call("com.canonical.usensord.haptic", "On", uint32(10))
-
-	if err != nil || reply == nil {
+	reply, err := obj.Call("com.canonical.usensord.haptic", "Vibrate", uint32(10))
+	if err != nil || reply.Type == dbus.TypeError {
 		logger.Println("FAILED")
 		t.Errorf("Notification error: %s", err)
 	}
+}
 
-	reply, err = obj.Call("com.canonical.usensord.haptic", "Off")
+func TestPatternHapticDBUS(t *testing.T) {
+	pattern := []uint32{uint32(10), uint32(100), uint32(200), uint32(10)}
 
-	if err != nil || reply == nil {
+	obj := conn.Object("com.canonical.usensord.haptic", "/com/canonical/usensord/haptic")
+
+	reply, err := obj.Call("com.canonical.usensord.haptic", "VibratePattern", pattern)
+	if err != nil || reply.Type == dbus.TypeError {
+		logger.Println("FAILED")
 		t.Errorf("Notification error: %s", err)
 	}
-
 }

@@ -26,10 +26,10 @@ import (
 	"launchpad.net/usensord/dbus"
 	"log"
 	"os"
+	"time"
 )
 
-var (
-	err    error
+var	(
 	conn   *dbus.Connection
 	logger *log.Logger
 )
@@ -40,64 +40,75 @@ const (
 )
 
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
-
-	var duration uint32
 	var reply *dbus.Message
 
 	for msg := range msgChan {
 		switch {
-		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "On":
+		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "Vibrate":
+			var duration uint32
 			msg.Args(&duration)
-			logger.Printf("Received On() method call %d", duration)
-			err = On(duration)
-			if err == nil {
-				reply = dbus.NewMethodReturnMessage(msg)
+			logger.Printf("Received Vibrate() method call %d", duration)
+			if err := Vibrate(duration); err != nil {
+				reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
 			} else {
-				reply = dbus.NewMethodReturnMessage(nil)
-			}
-			conn.Send(reply)
-		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "Off":
-			logger.Println("Received Off() method call")
-			if err == nil {
 				reply = dbus.NewMethodReturnMessage(msg)
-			} else {
-				reply = dbus.NewMethodReturnMessage(nil)
 			}
-			conn.Send(reply)
+		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "VibratePattern":
+			var pattern []uint32
+			msg.Args(&pattern)
+			logger.Print("Received VibratePattern() method call", pattern)
+			if err := VibratePattern(pattern); err != nil {
+				reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
+			} else {
+				reply = dbus.NewMethodReturnMessage(msg)
+			}
 		default:
-			logger.Println("Received unkown method call")
-			reply := dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
-			if err := conn.Send(reply); err != nil {
-				logger.Println("Could not send reply:", err)
-			}
+			logger.Println("Received unkown method call on", msg.Interface,	msg.Member)
+			reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
+		}
+		if err := conn.Send(reply); err != nil {
+			logger.Println("Could not send reply:", err)
 		}
 	}
-
 }
 
-func On(duration uint32) error {
+func Vibrate(duration uint32) error {
 
-	logger.Println("In On function")
 	fi, err := os.Create(HAPTIC_DEVICE)
 	if err != nil {
 		logger.Println("Error opening haptic device")
 		return err
 	}
+	defer fi.Close()
 
 	if _, err := fi.WriteString(fmt.Sprintf("%d", duration)); err != nil {
-		fi.Close()
 		return err
 	}
-
-	fi.Close()
 	return nil
 }
 
+func VibratePattern(duration []uint32) (err error) {
+
+	x := true
+
+	for _, t := range duration {
+		if x {
+			if err := Vibrate(uint32(t)); err != nil {
+				return err
+			}
+			x = false
+		} else {
+			time.Sleep(time.Duration(t) * time.Millisecond)
+			x = true
+		}
+	}
+	return err
+}
+
 /*Initialize Haptic service and register on the bus*/
-func Init(log *log.Logger) error {
+func Init(log *log.Logger) (err error) {
 
 	logger = log
-
 	if conn, err = dbus.Connect(dbus.SessionBus); err != nil {
 		logger.Fatal("Connection error:", err)
 		return err
@@ -107,7 +118,7 @@ func Init(log *log.Logger) error {
 	name := conn.RequestName("com.canonical.usensord.haptic", dbus.NameFlagDoNotQueue, func(*dbus.BusName) { nameAcquired <- 0 }, nil)
 	<-nameAcquired
 
-	logger.Printf("Successfully registerd %s on the bus.\n", name)
+	logger.Printf("Successfully registerd %s on the bus", name)
 
 	ch := make(chan *dbus.Message)
 	go watchDBusMethodCalls(ch)
@@ -116,5 +127,4 @@ func Init(log *log.Logger) error {
 	logger.Println("Connected to DBUS")
 
 	return nil
-
 }
