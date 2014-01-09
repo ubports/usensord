@@ -1,5 +1,6 @@
 usensord (1.0-0ubuntu1) UNRELEASED; urgency=low
 
   * Initial release.
+  * Automatic snapshot from revision 10 (bootstrap)
 
  -- Sergio Schvezov <sergio.schvezov@canonical.com>  Mon, 18 Nov 2013 17:07:16 -0300
