@@ -8,4 +8,4 @@ export DH_GOPKG := launchpad.net/usensord
 override_dh_auto_test:
 
 %:
-	dh $@ --buildsystem=golang --with=golang
+	dh $@ --buildsystem=golang --with=golang --fail-missing
