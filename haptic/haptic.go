@@ -73,18 +73,7 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 }
 
 func Vibrate(duration uint32) error {
-
-	fi, err := os.Create(HAPTIC_DEVICE)
-	if err != nil {
-		logger.Println("Error opening haptic device")
-		return err
-	}
-	defer fi.Close()
-
-	if _, err := fi.WriteString(fmt.Sprintf("%d", duration)); err != nil {
-		return err
-	}
-	return nil
+	return VibratePattern([]uint32{duration})
 }
 
 func VibratePattern(duration []uint32) (err error) {
