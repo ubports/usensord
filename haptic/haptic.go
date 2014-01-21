@@ -73,36 +73,33 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 }
 
 func Vibrate(duration uint32) error {
+	return VibratePattern([]uint32{duration})
+}
+
+func VibratePattern(duration []uint32) (err error) {
 
 	fi, err := os.Create(HAPTIC_DEVICE)
 	if err != nil {
 		logger.Println("Error opening haptic device")
 		return err
 	}
-	defer fi.Close()
-
-	if _, err := fi.WriteString(fmt.Sprintf("%d", duration)); err != nil {
-		return err
-	}
-	return nil
-}
-
-func VibratePattern(duration []uint32) (err error) {
-
 	x := true
 
-	for _, t := range duration {
-		if x {
-			if err := Vibrate(uint32(t)); err != nil {
-				return err
+	go func() {
+		defer fi.Close()
+		for _, t := range duration {
+			if x {
+				if _, err := fi.WriteString(fmt.Sprintf("%d", t)); err != nil {
+					logger.Println(err)
+				}
+				x = false
+			} else {
+				x = true
 			}
-			x = false
-		} else {
 			time.Sleep(time.Duration(t) * time.Millisecond)
-			x = true
 		}
-	}
-	return err
+	}()
+	return nil
 }
 
 /*Initialize Haptic service and register on the bus*/
