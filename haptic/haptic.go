@@ -98,9 +98,9 @@ func VibratePattern(duration []uint32) (err error) {
 			}
 			x = false
 		} else {
-			time.Sleep(time.Duration(t) * time.Millisecond)
 			x = true
 		}
+		time.Sleep(time.Duration(t) * time.Millisecond)
 	}
 	return err
 }
