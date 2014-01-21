@@ -89,20 +89,28 @@ func Vibrate(duration uint32) error {
 
 func VibratePattern(duration []uint32) (err error) {
 
+	fi, err := os.Create(HAPTIC_DEVICE)
+	if err != nil {
+		logger.Println("Error opening haptic device")
+		return err
+	}
 	x := true
 
-	for _, t := range duration {
-		if x {
-			if err := Vibrate(uint32(t)); err != nil {
-				return err
+	go func() {
+		defer fi.Close()
+		for _, t := range duration {
+			if x {
+				if _, err := fi.WriteString(fmt.Sprintf("%d", t)); err != nil {
+					logger.Println(err)
+				}
+				x = false
+			} else {
+				x = true
 			}
-			x = false
-		} else {
-			x = true
+			time.Sleep(time.Duration(t) * time.Millisecond)
 		}
-		time.Sleep(time.Duration(t) * time.Millisecond)
-	}
-	return err
+	}()
+	return nil
 }
 
 /*Initialize Haptic service and register on the bus*/
