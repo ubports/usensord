@@ -1,3 +1,14 @@
+usensord (1.0+14.04.20140123-0ubuntu1) trusty; urgency=low
+
+  [ Sergio Schvezov ]
+  * Changing package priority to optional.
+  * VibratePattern non blocking and sleep on on so off is not hidden.
+
+  [ Ubuntu daily release ]
+  * Automatic snapshot from revision 14
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Thu, 23 Jan 2014 15:53:20 +0000
+
 usensord (1.0+14.04.20140110-0ubuntu1) trusty; urgency=low
 
   [ Sergio Schvezov ]
