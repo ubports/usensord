@@ -70,8 +70,7 @@ func TestPatternHapticDBUS(t *testing.T) {
 			logger.Println("FAILED")
 			t.Errorf("Notification error: %s", err)
 		}
-		// Sleep for wait * n so the sensor doesn't get bombed with
-		// requests.
+		// Sleep for wait * n so the sensor doesn't get bombed with requests.
 		time.Sleep(time.Duration(wait * n) * time.Millisecond)
 	}
 	wg.Wait()
