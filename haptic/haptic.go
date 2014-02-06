@@ -27,11 +27,13 @@ import (
 	"log"
 	"os"
 	"time"
+	"sync"
 )
 
 var	(
 	conn   *dbus.Connection
 	logger *log.Logger
+	wg     sync.WaitGroup
 )
 
 const (
@@ -55,9 +57,10 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 			}
 		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "VibratePattern":
 			var pattern []uint32
-			msg.Args(&pattern)
-			logger.Print("Received VibratePattern() method call", pattern)
-			if err := VibratePattern(pattern); err != nil {
+			var repeat uint32
+			msg.Args(&pattern, &repeat)
+			logger.Print("Received VibratePattern() method call ", pattern, " ", repeat)
+			if err := VibratePattern(pattern, repeat); err != nil {
 				reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
 			} else {
 				reply = dbus.NewMethodReturnMessage(msg)
@@ -72,37 +75,51 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 	}
 }
 
+// Vibrate generates a vibration with the specified duration
+// If the haptic device used to generate the vibration cannot be opened
+// an error is returned in err.
 func Vibrate(duration uint32) error {
-	return VibratePattern([]uint32{duration})
+	return VibratePattern([]uint32{duration}, 1)
 }
 
-func VibratePattern(duration []uint32) (err error) {
+
+// VibratePattern generates a vibration in the form of a Pattern set in
+// duration a pattern of on off states, repeat specifies the ammount of times
+// the pattern should be repeated.
+// A repeat value of 0 is a nop, not an error.
+// If the haptic device used to generate the vibration cannot be opened
+// an error is returned in err.
+func VibratePattern(duration []uint32, repeat uint32) (err error) {
 
 	fi, err := os.Create(HAPTIC_DEVICE)
 	if err != nil {
 		logger.Println("Error opening haptic device")
 		return err
 	}
-	x := true
 
+	wg.Add(1)
 	go func() {
 		defer fi.Close()
-		for _, t := range duration {
-			if x {
-				if _, err := fi.WriteString(fmt.Sprintf("%d", t)); err != nil {
-					logger.Println(err)
+		defer wg.Done()
+		for n := uint32(0); n < repeat; n++ {
+			x := true
+			for _, t := range duration {
+				if x {
+					if _, err := fi.WriteString(fmt.Sprintf("%d", t)); err != nil {
+						logger.Println(err)
+					}
+					x = false
+				} else {
+					x = true
 				}
-				x = false
-			} else {
-				x = true
+				time.Sleep(time.Duration(t) * time.Millisecond)
 			}
-			time.Sleep(time.Duration(t) * time.Millisecond)
 		}
 	}()
 	return nil
 }
 
-/*Initialize Haptic service and register on the bus*/
+// Init exposes the haptic device object path on the bus.
 func Init(log *log.Logger) (err error) {
 
 	logger = log
@@ -111,8 +128,9 @@ func Init(log *log.Logger) (err error) {
 		return err
 	}
 
+	// TODO move to usensord
 	nameAcquired := make(chan int, 1)
-	name := conn.RequestName("com.canonical.usensord.haptic", dbus.NameFlagDoNotQueue, func(*dbus.BusName) { nameAcquired <- 0 }, nil)
+	name := conn.RequestName("com.canonical.usensord", dbus.NameFlagDoNotQueue, func(*dbus.BusName) { nameAcquired <- 0 }, nil)
 	<-nameAcquired
 
 	logger.Printf("Successfully registerd %s on the bus", name)
