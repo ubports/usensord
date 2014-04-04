@@ -1,3 +1,12 @@
+usensord (1.0+14.04.20140404-0ubuntu1) trusty; urgency=low
+
+  [ Dimitri John Ledkov ]
+  * Fix upstart session job to start/stop when session bus starts/stop,
+    rather than start when any dbus event is emitted. (LP: #1302516)
+    (LP: #1302516)
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Fri, 04 Apr 2014 12:44:17 +0000
+
 usensord (1.0+14.04.20140123-0ubuntu1) trusty; urgency=low
 
   [ Sergio Schvezov ]
