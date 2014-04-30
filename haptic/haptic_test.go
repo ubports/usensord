@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
 )
 
 func init() {
@@ -42,8 +43,9 @@ func init() {
 	}
 }
 
+// TODO fix tests to use fakes
 func TestHapticDBUS(t *testing.T) {
-	obj := conn.Object("com.canonical.usensord.haptic", "/com/canonical/usensord/haptic")
+	obj := conn.Object("com.canonical.usensord", "/com/canonical/usensord/haptic")
 
 	reply, err := obj.Call("com.canonical.usensord.haptic", "Vibrate", uint32(10))
 	if err != nil || reply.Type == dbus.TypeError {
@@ -52,14 +54,24 @@ func TestHapticDBUS(t *testing.T) {
 	}
 }
 
+// TODO fix tests to use fakes
 func TestPatternHapticDBUS(t *testing.T) {
-	pattern := []uint32{uint32(10), uint32(100), uint32(200), uint32(10)}
-
-	obj := conn.Object("com.canonical.usensord.haptic", "/com/canonical/usensord/haptic")
-
-	reply, err := obj.Call("com.canonical.usensord.haptic", "VibratePattern", pattern)
-	if err != nil || reply.Type == dbus.TypeError {
-		logger.Println("FAILED")
-		t.Errorf("Notification error: %s", err)
+	pattern := []uint32{uint32(1), uint32(100), uint32(2), uint32(200)}
+	var wait uint32
+	for _, n := range pattern {
+		wait += n
 	}
+
+	obj := conn.Object("com.canonical.usensord", "/com/canonical/usensord/haptic")
+
+	for _, n := range []uint32{1, 0, 5} {
+		reply, err := obj.Call("com.canonical.usensord.haptic", "VibratePattern", pattern, n)
+		if err != nil || reply.Type == dbus.TypeError {
+			logger.Println("FAILED")
+			t.Errorf("Notification error: %s", err)
+		}
+		// Sleep for wait * n so the sensor doesn't get bombed with requests.
+		time.Sleep(time.Duration(wait * n) * time.Millisecond)
+	}
+	wg.Wait()
 }
