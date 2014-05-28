@@ -23,14 +23,15 @@ package haptic
 
 import (
 	"fmt"
-	"launchpad.net/usensord/dbus"
 	"log"
 	"os"
-	"time"
 	"sync"
+	"time"
+
+	"launchpad.net/go-dbus/v1"
 )
 
-var	(
+var (
 	conn   *dbus.Connection
 	logger *log.Logger
 	wg     sync.WaitGroup
@@ -66,7 +67,7 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 				reply = dbus.NewMethodReturnMessage(msg)
 			}
 		default:
-			logger.Println("Received unkown method call on", msg.Interface,	msg.Member)
+			logger.Println("Received unkown method call on", msg.Interface, msg.Member)
 			reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
 		}
 		if err := conn.Send(reply); err != nil {
@@ -81,7 +82,6 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 func Vibrate(duration uint32) error {
 	return VibratePattern([]uint32{duration}, 1)
 }
-
 
 // VibratePattern generates a vibration in the form of a Pattern set in
 // duration a pattern of on off states, repeat specifies the ammount of times
@@ -128,12 +128,8 @@ func Init(log *log.Logger) (err error) {
 		return err
 	}
 
-	// TODO move to usensord
-	nameAcquired := make(chan int, 1)
-	name := conn.RequestName("com.canonical.usensord", dbus.NameFlagDoNotQueue, func(*dbus.BusName) { nameAcquired <- 0 }, nil)
-	<-nameAcquired
-
-	logger.Printf("Successfully registerd %s on the bus", name)
+	name := conn.RequestName("com.canonical.usensord", dbus.NameFlagDoNotQueue)
+	logger.Printf("Successfully registered %s on the bus", name.Name)
 
 	ch := make(chan *dbus.Message)
 	go watchDBusMethodCalls(ch)
