@@ -43,37 +43,50 @@ const (
 )
 
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
-	var reply *dbus.Message
-
 	for msg := range msgChan {
-		switch {
-		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "Vibrate":
-			var duration uint32
-			msg.Args(&duration)
-			logger.Printf("Received Vibrate() method call %d", duration)
-			if err := Vibrate(duration); err != nil {
-				reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
-			} else {
-				reply = dbus.NewMethodReturnMessage(msg)
-			}
-		case msg.Interface == HAPTIC_DBUS_IFACE && msg.Member == "VibratePattern":
-			var pattern []uint32
-			var repeat uint32
-			msg.Args(&pattern, &repeat)
-			logger.Print("Received VibratePattern() method call ", pattern, " ", repeat)
-			if err := VibratePattern(pattern, repeat); err != nil {
-				reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
-			} else {
-				reply = dbus.NewMethodReturnMessage(msg)
-			}
-		default:
-			logger.Println("Received unkown method call on", msg.Interface, msg.Member)
-			reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
+		var reply *dbus.Message
+
+		if msg.Interface == HAPTIC_DBUS_IFACE {
+			reply = handleHapticInterface(msg)
+		} else {
+			reply = dbus.NewErrorMessage(
+				msg,
+				"org.freedesktop.DBus.Error.UnknownInterface",
+				fmt.Sprintf("No such interface '%s' at object path '%s'", msg.Interface, msg.Path))
 		}
+
 		if err := conn.Send(reply); err != nil {
 			logger.Println("Could not send reply:", err)
 		}
 	}
+}
+
+func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
+	switch msg.Member {
+	case "Vibrate":
+		var duration uint32
+		msg.Args(&duration)
+		logger.Printf("Received Vibrate() method call %d", duration)
+		if err := Vibrate(duration); err != nil {
+			reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
+		} else {
+			reply = dbus.NewMethodReturnMessage(msg)
+		}
+	case "VibratePattern":
+		var pattern []uint32
+		var repeat uint32
+		msg.Args(&pattern, &repeat)
+		logger.Print("Received VibratePattern() method call ", pattern, " ", repeat)
+		if err := VibratePattern(pattern, repeat); err != nil {
+			reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
+		} else {
+			reply = dbus.NewMethodReturnMessage(msg)
+		}
+	default:
+		logger.Println("Received unkown method call on", msg.Interface, msg.Member)
+		reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
+	}
+	return reply
 }
 
 // Vibrate generates a vibration with the specified duration
