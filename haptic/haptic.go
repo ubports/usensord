@@ -139,7 +139,7 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 				time.Sleep(time.Duration(t) * time.Millisecond)
 			}
 		}
-		time.Sleep(2500 * time.Millisecond)
+		time.Sleep(1500 * time.Millisecond)
 		obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
 	}()
 
