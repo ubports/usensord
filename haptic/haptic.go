@@ -33,6 +33,7 @@ import (
 
 var (
 	conn   *dbus.Connection
+	sysbus *dbus.Connection
 	logger *log.Logger
 	wg     sync.WaitGroup
 )
@@ -114,6 +115,16 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 	go func() {
 		defer fi.Close()
 		defer wg.Done()
+        obj := sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
+        reply, err := obj.Call("com.canonical.powerd", "requestSysState", "usensord", int32(1))
+        var cookie string
+        if err != nil {
+            log.Printf("Cannot request Powerd system power state: %s", err)
+        } else {
+            if err := reply.Args(&cookie); err != nil {
+                log.Printf("Cookie: %s", cookie)
+            }
+        }
 		for n := uint32(0); n < repeat; n++ {
 			x := true
 			for _, t := range duration {
@@ -128,7 +139,10 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 				time.Sleep(time.Duration(t) * time.Millisecond)
 			}
 		}
+        time.Sleep(2500 * time.Millisecond)
+        obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
 	}()
+
 	return nil
 }
 
@@ -137,6 +151,11 @@ func Init(log *log.Logger) (err error) {
 
 	logger = log
 	if conn, err = dbus.Connect(dbus.SessionBus); err != nil {
+		logger.Fatal("Connection error:", err)
+		return err
+	}
+
+	if sysbus, err = dbus.Connect(dbus.SystemBus); err != nil {
 		logger.Fatal("Connection error:", err)
 		return err
 	}
