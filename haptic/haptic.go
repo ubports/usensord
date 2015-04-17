@@ -140,7 +140,9 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 			}
 		}
 		time.Sleep(1500 * time.Millisecond)
-		obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
+		if cookie != "" {
+			obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
+		}
 	}()
 
 	return nil
