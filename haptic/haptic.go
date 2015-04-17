@@ -36,6 +36,7 @@ var (
 	sysbus *dbus.Connection
 	logger *log.Logger
 	wg     sync.WaitGroup
+	cookie string
 )
 
 const (
@@ -116,8 +117,11 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 		defer fi.Close()
 		defer wg.Done()
 		obj := sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
+		if cookie != "" {
+			obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
+			cookie = ""
+		}
 		reply, err := obj.Call("com.canonical.powerd", "requestSysState", "usensord", int32(1))
-		var cookie string
 		if err != nil {
 			log.Printf("Cannot request Powerd system power state: %s", err)
 		} else {
@@ -142,6 +146,7 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 		time.Sleep(1500 * time.Millisecond)
 		if cookie != "" {
 			obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
+			cookie = ""
 		}
 	}()
 
