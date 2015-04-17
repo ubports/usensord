@@ -117,14 +117,14 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 		defer fi.Close()
 		defer wg.Done()
 		obj := sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
-		if cookie != "" {
-			obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
-			cookie = ""
-		}
 		reply, err := obj.Call("com.canonical.powerd", "requestSysState", "usensord", int32(1))
 		if err != nil {
 			log.Printf("Cannot request Powerd system power state: %s", err)
 		} else {
+			if cookie != "" {
+			        // Already holding a previous lock, so clear now that we have a new one
+				obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
+			}
 			if err := reply.Args(&cookie); err != nil {
 				log.Printf("Cookie: %s", cookie)
 			}
