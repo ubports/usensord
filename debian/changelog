@@ -1,3 +1,16 @@
+usensord (1.1+15.04.20150422.1-0ubuntu1) vivid; urgency=medium
+
+  [ CI Train Bot ]
+  * New rebuild forced.
+
+  [ Ricardo Mendoza ]
+  * Take a powerd state while theres an active vibration request, also
+    give a grace period after vibration ended before suspending, so as
+    to not peg the hardware actuator if the cpu goes offline before the
+    end timer has expired. (LP: #1442166)
+
+ -- CI Train Bot <ci-train-bot@canonical.com>  Wed, 22 Apr 2015 23:37:14 +0000
+
 usensord (1.1+14.10.20140701-0ubuntu1) utopic; urgency=low
 
   [ Sergio Schvezov ]
