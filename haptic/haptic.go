@@ -36,7 +36,10 @@ var (
 	sysbus *dbus.Connection
 	logger *log.Logger
 	wg     sync.WaitGroup
+	powerd *dbus.ObjectProxy
+	mutex  *sync.Mutex
 	cookie string
+	timer  *time.Timer
 )
 
 const (
@@ -116,19 +119,29 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 	go func() {
 		defer fi.Close()
 		defer wg.Done()
-		obj := sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
-		reply, err := obj.Call("com.canonical.powerd", "requestSysState", "usensord", int32(1))
-		if err != nil {
-			log.Printf("Cannot request Powerd system power state: %s", err)
+		mutex.Lock();
+		if (cookie == "") {
+			reply, err := powerd.Call("com.canonical.powerd", "requestSysState", "usensord", int32(1))
+			if err != nil {
+				logger.Println("Cannot request Powerd system power state: ", err)
+			} else {
+				if err := reply.Args(&cookie); err == nil {
+					logger.Println("Suspend blocker cookie: ", cookie)
+					timer = time.NewTimer(1500 * time.Millisecond)
+					go func() {
+						<-timer.C
+						logger.Println("Clearing suspend blocker")
+						if cookie != "" {
+							powerd.Call("com.canonical.powerd", "clearSysState", string(cookie))
+							cookie = ""
+						}
+					}()
+				}
+			}
 		} else {
-			if cookie != "" {
-			        // Already holding a previous lock, so clear now that we have a new one
-				obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
-			}
-			if err := reply.Args(&cookie); err != nil {
-				log.Printf("Cookie: %s", cookie)
-			}
+			timer.Reset(1500 * time.Millisecond)
 		}
+		mutex.Unlock()
 		for n := uint32(0); n < repeat; n++ {
 			x := true
 			for _, t := range duration {
@@ -142,11 +155,6 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 				}
 				time.Sleep(time.Duration(t) * time.Millisecond)
 			}
-		}
-		time.Sleep(1500 * time.Millisecond)
-		if cookie != "" {
-			obj.Call("com.canonical.powerd", "clearSysState", string(cookie))
-			cookie = ""
 		}
 	}()
 
@@ -169,6 +177,9 @@ func Init(log *log.Logger) (err error) {
 
 	name := conn.RequestName("com.canonical.usensord", dbus.NameFlagDoNotQueue)
 	logger.Printf("Successfully registered %s on the bus", name.Name)
+
+	powerd = sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
+	mutex = &sync.Mutex{}
 
 	ch := make(chan *dbus.Message)
 	go watchDBusMethodCalls(ch)
