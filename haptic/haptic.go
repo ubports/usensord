@@ -33,8 +33,13 @@ import (
 
 var (
 	conn   *dbus.Connection
+	sysbus *dbus.Connection
 	logger *log.Logger
 	wg     sync.WaitGroup
+	powerd *dbus.ObjectProxy
+	mutex  *sync.Mutex
+	cookie string
+	timer  *time.Timer
 )
 
 const (
@@ -118,6 +123,29 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 			x := true
 			for _, t := range duration {
 				if x {
+					mutex.Lock();
+					if (cookie == "") {
+						reply, err := powerd.Call("com.canonical.powerd", "requestSysState", "usensord", int32(1))
+						if err != nil {
+							logger.Println("Cannot request Powerd system power state: ", err)
+						} else {
+							if err := reply.Args(&cookie); err == nil {
+								logger.Println("Suspend blocker cookie: ", cookie)
+								timer = time.NewTimer(time.Duration(t + 1500) * time.Millisecond)
+								go func() {
+									<-timer.C
+									logger.Println("Clearing suspend blocker")
+									if cookie != "" {
+										powerd.Call("com.canonical.powerd", "clearSysState", string(cookie))
+										cookie = ""
+									}
+								}()
+							}
+						}
+					} else {
+						timer.Reset(time.Duration(t + 1500) * time.Millisecond)
+					}
+					mutex.Unlock()
 					if _, err := fi.WriteString(fmt.Sprintf("%d", t)); err != nil {
 						logger.Println(err)
 					}
@@ -129,6 +157,7 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 			}
 		}
 	}()
+
 	return nil
 }
 
@@ -141,8 +170,16 @@ func Init(log *log.Logger) (err error) {
 		return err
 	}
 
+	if sysbus, err = dbus.Connect(dbus.SystemBus); err != nil {
+		logger.Fatal("Connection error:", err)
+		return err
+	}
+
 	name := conn.RequestName("com.canonical.usensord", dbus.NameFlagDoNotQueue)
 	logger.Printf("Successfully registered %s on the bus", name.Name)
+
+	powerd = sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
+	mutex = &sync.Mutex{}
 
 	ch := make(chan *dbus.Message)
 	go watchDBusMethodCalls(ch)
