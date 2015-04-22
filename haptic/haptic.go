@@ -119,33 +119,32 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 	go func() {
 		defer fi.Close()
 		defer wg.Done()
-		mutex.Lock();
-		if (cookie == "") {
-			reply, err := powerd.Call("com.canonical.powerd", "requestSysState", "usensord", int32(1))
-			if err != nil {
-				logger.Println("Cannot request Powerd system power state: ", err)
-			} else {
-				if err := reply.Args(&cookie); err == nil {
-					logger.Println("Suspend blocker cookie: ", cookie)
-					timer = time.NewTimer(1500 * time.Millisecond)
-					go func() {
-						<-timer.C
-						logger.Println("Clearing suspend blocker")
-						if cookie != "" {
-							powerd.Call("com.canonical.powerd", "clearSysState", string(cookie))
-							cookie = ""
-						}
-					}()
-				}
-			}
-		} else {
-			timer.Reset(1500 * time.Millisecond)
-		}
-		mutex.Unlock()
 		for n := uint32(0); n < repeat; n++ {
 			x := true
 			for _, t := range duration {
+				mutex.Lock();
 				if x {
+					if (cookie == "") {
+						reply, err := powerd.Call("com.canonical.powerd", "requestSysState", "usensord", int32(1))
+						if err != nil {
+							logger.Println("Cannot request Powerd system power state: ", err)
+						} else {
+							if err := reply.Args(&cookie); err == nil {
+								logger.Println("Suspend blocker cookie: ", cookie)
+								timer = time.NewTimer(1500 * time.Millisecond)
+								go func() {
+									<-timer.C
+									logger.Println("Clearing suspend blocker")
+									if cookie != "" {
+										powerd.Call("com.canonical.powerd", "clearSysState", string(cookie))
+										cookie = ""
+									}
+								}()
+							}
+						}
+					} else {
+						timer.Reset(1500 * time.Millisecond)
+					}
 					if _, err := fi.WriteString(fmt.Sprintf("%d", t)); err != nil {
 						logger.Println(err)
 					}
@@ -153,6 +152,7 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 				} else {
 					x = true
 				}
+				mutex.Unlock()
 				time.Sleep(time.Duration(t) * time.Millisecond)
 			}
 		}
