@@ -24,7 +24,10 @@ package haptic
 import (
 	"fmt"
 	"log"
+        "io/ioutil"
 	"os"
+        "strconv"
+        "strings"
 	"sync"
 	"time"
 
@@ -40,11 +43,14 @@ var (
 	mutex  *sync.Mutex
 	cookie string
 	timer  *time.Timer
+        pvalue uint32
 )
 
 const (
 	HAPTIC_DBUS_IFACE = "com.canonical.usensord.haptic"
 	HAPTIC_DEVICE     = "/sys/class/timed_output/vibrator/enable"
+        PROP_DBUS_IFACE = "org.freedesktop.DBus.Properties"
+        PROP_FILE = "/home/phablet/.config/usensord/prop"
 )
 
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
@@ -53,7 +59,9 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 
 		if msg.Interface == HAPTIC_DBUS_IFACE {
 			reply = handleHapticInterface(msg)
-		} else {
+                } else if msg.Interface == PROP_DBUS_IFACE {
+                        reply = handlePropInterface(msg)
+                } else {
 			reply = dbus.NewErrorMessage(
 				msg,
 				"org.freedesktop.DBus.Error.UnknownInterface",
@@ -64,6 +72,52 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 			logger.Println("Could not send reply:", err)
 		}
 	}
+}
+
+func handlePropInterface(msg *dbus.Message) (reply *dbus.Message) {
+        switch msg.Member {
+        case "Get":
+                var iname, pname string
+                msg.Args(&iname, &pname)
+                if iname == HAPTIC_DBUS_IFACE && pname == "OtherVibrate" {
+                        reply = dbus.NewMethodReturnMessage(msg)
+                        reply.AppendArgs(dbus.Variant{uint32(pvalue)})
+                } else {
+                        reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", "interface or property not correct")
+                }
+        case "GetAll":
+                var iname string
+                msg.Args(&iname)
+                if iname == HAPTIC_DBUS_IFACE {
+                        reply = dbus.NewMethodReturnMessage(msg)                        
+                        reply.AppendArgs(dbus.Variant{uint32(pvalue)})
+                } else {
+                        reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", "interface or property not correct")
+                }
+        case "Set":
+                var iname, pname string
+                msg.Args(&iname, &pname, &pvalue)
+                if iname == HAPTIC_DBUS_IFACE && pname == "OtherVibrate" && (pvalue == 1 || pvalue == 0) {
+                        //save the property value
+                        bs := []byte(strconv.FormatUint(uint64(pvalue), 10))
+                        // write the whole body at once
+                        errwrite := ioutil.WriteFile(PROP_FILE, bs, 0644)
+                        if errwrite != nil {
+                            logger.Println("WriteFile error:", errwrite)
+                        }
+
+                        //reply = dbus.NewSignalMessage("/com/canonical/usensord/haptic", HAPTIC_DBUS_IFACE, "Set")
+                        reply = dbus.NewMethodReturnMessage(msg)
+                        reply.AppendArgs(dbus.Variant{uint32(pvalue)})
+                        logger.Println("Set property to be ", pvalue)
+                } else {
+                        reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", "interface or property not correct")
+                }
+        default:
+                logger.Println("Received unkown method call on", msg.Interface, msg.Member)
+                reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
+        }
+        return reply
 }
 
 func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
@@ -180,6 +234,28 @@ func Init(log *log.Logger) (err error) {
 
 	powerd = sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
 	mutex = &sync.Mutex{}
+        //save and load the property value
+        os.MkdirAll("/home/phablet/.config/usensord", 0777)
+        b, errread := ioutil.ReadFile(PROP_FILE)
+        if errread != nil {
+                pvalue = 1
+                bs := []byte(strconv.FormatUint(uint64(pvalue), 10))
+                // write the whole body at once
+                errwrite := ioutil.WriteFile(PROP_FILE, bs, 0644)
+                if errwrite != nil {
+                    logger.Fatal("WriteFile error:", errwrite)
+                    return errwrite
+                }
+        } else {
+                var tmp uint64
+                if tmp, err = strconv.ParseUint(strings.TrimSpace(string(b)), 10, 64); err == nil {
+                        pvalue = uint32(tmp)
+                        log.Println("pvalueb is", pvalue)
+                } else {
+                        log.Println("err is", err)
+                        pvalue = 1
+                }
+        }
 
 	ch := make(chan *dbus.Message)
 	go watchDBusMethodCalls(ch)
