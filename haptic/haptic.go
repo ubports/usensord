@@ -51,6 +51,7 @@ const (
 	HAPTIC_DEVICE     = "/sys/class/timed_output/vibrator/enable"
         PROP_DBUS_IFACE = "org.freedesktop.DBus.Properties"
         PROP_FILE = "/home/phablet/.config/usensord/prop"
+        OSK_PROCESS_NAME = "maliit-server"
 )
 
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
@@ -121,6 +122,41 @@ func handlePropInterface(msg *dbus.Message) (reply *dbus.Message) {
 }
 
 func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
+        messageBus := conn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")
+        processreply, err := messageBus.Call("org.freedesktop.DBus", "GetConnectionCredentials", msg.Sender)
+        if err != nil {
+                reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
+                return reply
+        }
+        var credentials map[string]dbus.Variant
+        if err := processreply.Args(&credentials); err != nil {
+                reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
+                return reply
+        }
+        pid := credentials["ProcessID"].Value.(uint32)
+        logger.Printf("caller process id: %d", pid)
+        isOSK := false
+        file := "/proc/" + strconv.FormatUint(uint64(pid), 10) + "/comm"
+        if _, err := os.Stat(file); os.IsNotExist(err) {
+                logger.Println("the comm for this pid not exist")
+        } else {
+                comm, erreadcomm := ioutil.ReadFile(file)
+                if erreadcomm != nil {
+                        logger.Println("faild to read the file:", file)
+                } else {
+                        pname := strings.TrimSpace(string(comm))
+                        logger.Println("process name", pname)
+                        if pname == OSK_PROCESS_NAME {
+                            isOSK = true
+                            logger.Println("OSK calling")
+                        }
+                }
+        }
+        if !isOSK && pvalue == 0 {
+                logger.Println("not vibrate since not osk and pvalue is 0")
+                reply = dbus.NewMethodReturnMessage(msg)
+                return reply
+        }
 	switch msg.Member {
 	case "Vibrate":
 		var duration uint32
@@ -238,7 +274,7 @@ func Init(log *log.Logger) (err error) {
         os.MkdirAll("/home/phablet/.config/usensord", 0777)
         b, errread := ioutil.ReadFile(PROP_FILE)
         if errread != nil {
-                pvalue = 1
+                pvalue = 0
                 bs := []byte(strconv.FormatUint(uint64(pvalue), 10))
                 // write the whole body at once
                 errwrite := ioutil.WriteFile(PROP_FILE, bs, 0644)
@@ -253,7 +289,7 @@ func Init(log *log.Logger) (err error) {
                         log.Println("pvalueb is", pvalue)
                 } else {
                         log.Println("err is", err)
-                        pvalue = 1
+                        pvalue = 0
                 }
         }
 
