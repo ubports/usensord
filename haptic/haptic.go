@@ -147,13 +147,12 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
         logger.Printf("caller process id: %d", pid)
 
         var bb []uint8
-        for _, f := range label { 
-                if f.(uint8) == 0 {
-                        continue
-                }
+        for _, f := range label {
                 bb = append(bb, f.(uint8))
         }
         profile := strings.TrimSpace(string(bb))
+        //LinuxSecurityLabel ends with null
+        profile = profile[:len(profile)-1]
         logger.Println("caller process label:", profile)
         isOSK := false
         file := "/proc/" + strconv.FormatUint(uint64(pid), 10) + "/exe"
