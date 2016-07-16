@@ -36,6 +36,11 @@ import (
 
 	"launchpad.net/go-dbus/v1"
 )
+// #cgo CFLAGS: -I/usr/include
+// #cgo LDFLAGS: -L/usr/lib/arm-linux-gnueabihf -lapparmor
+//#include <sys/apparmor.h>
+//#include <errno.h>
+import "C"
 
 type Prop struct {
     OtherVibrate uint32
@@ -143,31 +148,40 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
                 return reply
         }
         pid := credentials["ProcessID"].Value.(uint32)
-        label := credentials["LinuxSecurityLabel"].Value.([]interface{})
         logger.Printf("caller process id: %d", pid)
-
-        var bb []uint8
-        for _, f := range label {
-                bb = append(bb, f.(uint8))
-        }
-        profile := strings.TrimSpace(string(bb))
-        //LinuxSecurityLabel ends with null
-        profile = profile[:len(profile)-1]
-        logger.Println("caller process label:", profile)
-        isOSK := false
-        file := "/proc/" + strconv.FormatUint(uint64(pid), 10) + "/exe"
-        if _, err := os.Lstat(file); os.IsNotExist(err) {
-                logger.Println("the exe link for this pid not exist")
+        var profile string
+        ret, error := C.aa_is_enabled()
+        if ret == 1 {
+                 logger.Println("aa_is_enabled")
+                 label := credentials["LinuxSecurityLabel"].Value.([]interface{})
+                 var bb []uint8
+                 for _, f := range label {
+                         bb = append(bb, f.(uint8))
+                 }
+                 profile = strings.TrimSpace(string(bb))
+                 //LinuxSecurityLabel ends with null
+                 profile = profile[:len(profile)-1]
+                 logger.Println("caller process label:", profile)
         } else {
-                exe, erreadexe := os.Readlink(file)
-                if erreadexe != nil {
-                        logger.Println("faild to read the file:", file)
+                logger.Println("aa_is_enabled failed:", error)
+                profile = UNCONFINED_PROFILE
+        }
+        isOSK := false
+        if profile == UNCONFINED_PROFILE {
+                file := "/proc/" + strconv.FormatUint(uint64(pid), 10) + "/exe"
+                if _, err := os.Lstat(file); os.IsNotExist(err) {
+                        logger.Println("the exe link for this pid not exist")
                 } else {
-                        pname := strings.TrimSpace(string(exe))
-                        logger.Println("process name:", pname)
-                        if pname == OSK_PROCESS_NAME && profile == UNCONFINED_PROFILE {
-                            isOSK = true
-                            logger.Println("OSK calling")
+                        exe, erreadexe := os.Readlink(file)
+                        if erreadexe != nil {
+                                logger.Println("faild to read the file:", file)
+                        } else {
+                                pname := strings.TrimSpace(string(exe))
+                                logger.Println("process name:", pname)
+                                if pname == OSK_PROCESS_NAME  {
+                                    isOSK = true
+                                    logger.Println("OSK calling")
+                                }
                         }
                 }
         }
