@@ -129,7 +129,7 @@ func handlePropInterface(msg *dbus.Message) (reply *dbus.Message) {
                         reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", "interface or property not correct")
                 }
         default:
-                logger.Println("Received unkown method call on", msg.Interface, msg.Member)
+                logger.Println("Received unknown method call on", msg.Interface, msg.Member)
                 reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
         }
         return reply
@@ -169,19 +169,19 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
         isOSK := false
         if profile == UNCONFINED_PROFILE {
                 file := "/proc/" + strconv.FormatUint(uint64(pid), 10) + "/exe"
-                if _, err := os.Lstat(file); os.IsNotExist(err) {
-                        logger.Println("the exe link for this pid not exist")
+                _, err := os.Lstat(file)
+                if err != nil {
+                        logger.Println("error while calling os.Lstat", err)
+                }
+                exe, erreadexe := os.Readlink(file)
+                if erreadexe != nil {
+                        logger.Printf("fail to read %s with error:", file, erreadexe.Error())
                 } else {
-                        exe, erreadexe := os.Readlink(file)
-                        if erreadexe != nil {
-                                logger.Println("faild to read the file:", file)
-                        } else {
-                                pname := strings.TrimSpace(string(exe))
-                                logger.Println("process name:", pname)
-                                if pname == OSK_PROCESS_NAME  {
-                                    isOSK = true
-                                    logger.Println("OSK calling")
-                                }
+                        pname := strings.TrimSpace(string(exe))
+                        logger.Println("process name:", pname)
+                        if pname == OSK_PROCESS_NAME  {
+                                isOSK = true
+                                logger.Println("OSK calling")
                         }
                 }
         }
@@ -211,7 +211,7 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
 			reply = dbus.NewMethodReturnMessage(msg)
 		}
 	default:
-		logger.Println("Received unkown method call on", msg.Interface, msg.Member)
+                logger.Println("Received unknown method call on", msg.Interface, msg.Member)
 		reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
 	}
 	return reply
@@ -308,7 +308,7 @@ func Init(log *log.Logger) (err error) {
         configPath := path.Join(u.HomeDir, ".config", "usensord")
         configFile = path.Join(u.HomeDir, ".config", "usensord", "prop.json")
         log.Println("configFile:", configFile)
-        os.MkdirAll(configPath, 0776)
+        os.MkdirAll(configPath, 0755)
         b, errread := ioutil.ReadFile(configFile)
         if errread != nil {
                 pvalue = 0
