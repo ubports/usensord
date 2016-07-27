@@ -37,7 +37,9 @@ import (
 	"launchpad.net/go-dbus/v1"
 )
 // #cgo CFLAGS: -I/usr/include
-// #cgo LDFLAGS: -L/usr/lib/arm-linux-gnueabihf -lapparmor
+// #cgo linux,amd64 LDFLAGS: -L/usr/lib/x86_64-linux-gnu -lapparmor
+// #cgo linux,arm LDFLAGS: -L/usr/lib/arm-linux-gnueabihf -lapparmor
+// #cgo linux,arm64 LDFLAGS: -L/usr/lib/aarch64-linux-gnu -lapparmor
 //#include <sys/apparmor.h>
 //#include <errno.h>
 import "C"
