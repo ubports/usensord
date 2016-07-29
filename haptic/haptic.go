@@ -37,6 +37,10 @@ import (
 	"launchpad.net/go-dbus/v1"
 )
 // #cgo CFLAGS: -I/usr/include
+// #cgo linux,ppc LDFLAGS: -L/usr/lib/powerpc-linux-gnu -lapparmor
+// #cgo linux,ppc64le LDFLAGS: -L/usr/lib/powerpc64le-linux-gnu -lapparmor
+// #cgo linux,s390x LDFLAGS: -L/usr/lib/s390x-linux-gnu -lapparmor
+// #cgo linux,386 LDFLAGS: -L/usr/lib/i386-linux-gnu -lapparmor
 // #cgo linux,amd64 LDFLAGS: -L/usr/lib/x86_64-linux-gnu -lapparmor
 // #cgo linux,arm LDFLAGS: -L/usr/lib/arm-linux-gnueabihf -lapparmor
 // #cgo linux,arm64 LDFLAGS: -L/usr/lib/aarch64-linux-gnu -lapparmor
