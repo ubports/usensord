@@ -317,7 +317,7 @@ func Init(log *log.Logger) (err error) {
         os.MkdirAll(configPath, 0755)
         b, errread := ioutil.ReadFile(configFile)
         if errread != nil {
-                pvalue = 0
+                pvalue = 1
                 prop := Prop{OtherVibrate: pvalue,}
                 propJson, _ := json.Marshal(prop)
                 errwrite := ioutil.WriteFile(configFile, propJson, 0644)
