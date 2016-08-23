@@ -1,3 +1,15 @@
+usensord (1.1+15.04.20160720-0ubuntu2) vivid; urgency=medium
+
+  * Fix lp:1433590.
+    Expose OtherVibrate property for system settings to change(Enable/Disable).
+    The value of the property is saved in file(.config/usensord/prop.json) in
+    order to be kept after reboot and restored after factory reset.
+    Identify if the peer is OSK and vibrate for it always. If not, check
+    the OtherVibrate property, if it is 1, then do vibration. If it is 0,
+    don't do vibration.
+
+ -- enwei <enwei.zhang@canonical.com>  Wed, 20 Jul 2016 12:20:59 +0800
+
 usensord (1.1+15.04.20150422.1-0ubuntu1) vivid; urgency=medium
 
   [ CI Train Bot ]

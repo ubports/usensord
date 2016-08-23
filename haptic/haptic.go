@@ -22,14 +22,35 @@
 package haptic
 
 import (
+        "encoding/json"
 	"fmt"
 	"log"
+        "io/ioutil"
 	"os"
+        "os/user"
+        "path"
+        "strconv"
+        "strings"
 	"sync"
 	"time"
 
 	"launchpad.net/go-dbus/v1"
 )
+// #cgo CFLAGS: -I/usr/include
+// #cgo linux,ppc LDFLAGS: -L/usr/lib/powerpc-linux-gnu -lapparmor
+// #cgo linux,ppc64le LDFLAGS: -L/usr/lib/powerpc64le-linux-gnu -lapparmor
+// #cgo linux,s390x LDFLAGS: -L/usr/lib/s390x-linux-gnu -lapparmor
+// #cgo linux,386 LDFLAGS: -L/usr/lib/i386-linux-gnu -lapparmor
+// #cgo linux,amd64 LDFLAGS: -L/usr/lib/x86_64-linux-gnu -lapparmor
+// #cgo linux,arm LDFLAGS: -L/usr/lib/arm-linux-gnueabihf -lapparmor
+// #cgo linux,arm64 LDFLAGS: -L/usr/lib/aarch64-linux-gnu -lapparmor
+//#include <sys/apparmor.h>
+//#include <errno.h>
+import "C"
+
+type Prop struct {
+    OtherVibrate uint32
+}
 
 var (
 	conn   *dbus.Connection
@@ -40,20 +61,28 @@ var (
 	mutex  *sync.Mutex
 	cookie string
 	timer  *time.Timer
+        pvalue uint32
+        configFile string
 )
 
 const (
 	HAPTIC_DBUS_IFACE = "com.canonical.usensord.haptic"
 	HAPTIC_DEVICE     = "/sys/class/timed_output/vibrator/enable"
+        PROP_DBUS_IFACE = "org.freedesktop.DBus.Properties"
+        OSK_PROCESS_NAME = "/usr/bin/maliit-server"
+        UNCONFINED_PROFILE = "unconfined"
 )
 
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 	for msg := range msgChan {
+                logger.Println("msg sender", msg.Sender)
 		var reply *dbus.Message
 
 		if msg.Interface == HAPTIC_DBUS_IFACE {
 			reply = handleHapticInterface(msg)
-		} else {
+                } else if msg.Interface == PROP_DBUS_IFACE {
+                        reply = handlePropInterface(msg)
+                } else {
 			reply = dbus.NewErrorMessage(
 				msg,
 				"org.freedesktop.DBus.Error.UnknownInterface",
@@ -66,7 +95,107 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 	}
 }
 
+func handlePropInterface(msg *dbus.Message) (reply *dbus.Message) {
+        switch msg.Member {
+        case "Get":
+                var iname, pname string
+                msg.Args(&iname, &pname)
+                if iname == HAPTIC_DBUS_IFACE && pname == "OtherVibrate" {
+                        reply = dbus.NewMethodReturnMessage(msg)
+                        reply.AppendArgs(dbus.Variant{uint32(pvalue)})
+                } else {
+                        reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", "interface or property not correct")
+                }
+        case "GetAll":
+                var iname string
+                msg.Args(&iname)
+                if iname == HAPTIC_DBUS_IFACE {
+                        reply = dbus.NewMethodReturnMessage(msg)                        
+                        reply.AppendArgs(dbus.Variant{uint32(pvalue)})
+                } else {
+                        reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", "interface or property not correct")
+                }
+        case "Set":
+                var iname, pname string
+                msg.Args(&iname, &pname, &pvalue)
+                if iname == HAPTIC_DBUS_IFACE && pname == "OtherVibrate" && (pvalue == 1 || pvalue == 0) {
+                        //save the property value
+                        prop := Prop{OtherVibrate: pvalue,}
+                        propJson, _ := json.Marshal(prop)
+                        errwrite := ioutil.WriteFile(configFile, propJson, 0644)
+                        if errwrite != nil {
+                            logger.Println("WriteFile error:", errwrite)
+                        }
+
+                        //reply = dbus.NewSignalMessage("/com/canonical/usensord/haptic", HAPTIC_DBUS_IFACE, "Set")
+                        reply = dbus.NewMethodReturnMessage(msg)
+                        reply.AppendArgs(dbus.Variant{uint32(pvalue)})
+                        logger.Println("Set property to be ", pvalue)
+                } else {
+                        reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", "interface or property not correct")
+                }
+        default:
+                logger.Println("Received unknown method call on", msg.Interface, msg.Member)
+                reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
+        }
+        return reply
+}
+
 func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
+        messageBus := conn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")
+        processreply, err := messageBus.Call("org.freedesktop.DBus", "GetConnectionCredentials", msg.Sender)
+        if err != nil {
+                reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
+                return reply
+        }
+        var credentials map[string]dbus.Variant
+        if err := processreply.Args(&credentials); err != nil {
+                reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
+                return reply
+        }
+        pid := credentials["ProcessID"].Value.(uint32)
+        logger.Printf("caller process id: %d", pid)
+        var profile string
+        ret, error := C.aa_is_enabled()
+        if ret == 1 {
+                 logger.Println("aa_is_enabled")
+                 label := credentials["LinuxSecurityLabel"].Value.([]interface{})
+                 var bb []uint8
+                 for _, f := range label {
+                         bb = append(bb, f.(uint8))
+                 }
+                 profile = strings.TrimSpace(string(bb))
+                 //LinuxSecurityLabel ends with null
+                 profile = profile[:len(profile)-1]
+                 logger.Println("caller process label:", profile)
+        } else {
+                logger.Println("aa_is_enabled failed:", error)
+                profile = UNCONFINED_PROFILE
+        }
+        isOSK := false
+        if profile == UNCONFINED_PROFILE {
+                file := "/proc/" + strconv.FormatUint(uint64(pid), 10) + "/exe"
+                _, err := os.Lstat(file)
+                if err != nil {
+                        logger.Println("error while calling os.Lstat", err)
+                }
+                exe, erreadexe := os.Readlink(file)
+                if erreadexe != nil {
+                        logger.Printf("fail to read %s with error:", file, erreadexe.Error())
+                } else {
+                        pname := strings.TrimSpace(string(exe))
+                        logger.Println("process name:", pname)
+                        if pname == OSK_PROCESS_NAME  {
+                                isOSK = true
+                                logger.Println("OSK calling")
+                        }
+                }
+        }
+        if !isOSK && pvalue == 0 {
+                logger.Println("not vibrate since not osk and pvalue is 0")
+                reply = dbus.NewMethodReturnMessage(msg)
+                return reply
+        }
 	switch msg.Member {
 	case "Vibrate":
 		var duration uint32
@@ -88,7 +217,7 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
 			reply = dbus.NewMethodReturnMessage(msg)
 		}
 	default:
-		logger.Println("Received unkown method call on", msg.Interface, msg.Member)
+                logger.Println("Received unknown method call on", msg.Interface, msg.Member)
 		reply = dbus.NewErrorMessage(msg, "org.freedesktop.DBus.Error.UnknownMethod", "Unknown method")
 	}
 	return reply
@@ -180,6 +309,33 @@ func Init(log *log.Logger) (err error) {
 
 	powerd = sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
 	mutex = &sync.Mutex{}
+        //save and load the property value
+        u, err := user.Current()
+        configPath := path.Join(u.HomeDir, ".config", "usensord")
+        configFile = path.Join(u.HomeDir, ".config", "usensord", "prop.json")
+        log.Println("configFile:", configFile)
+        os.MkdirAll(configPath, 0755)
+        b, errread := ioutil.ReadFile(configFile)
+        if errread != nil {
+                pvalue = 1
+                prop := Prop{OtherVibrate: pvalue,}
+                propJson, _ := json.Marshal(prop)
+                errwrite := ioutil.WriteFile(configFile, propJson, 0644)
+                if errwrite != nil {
+                    logger.Fatal("WriteFile error:", errwrite)
+                    return errwrite
+                }
+        } else {
+                var prop Prop
+                err := json.Unmarshal(b, &prop)
+                if err == nil {
+                        pvalue = prop.OtherVibrate
+                        log.Println("pvalueb is", pvalue)
+                } else {
+                        log.Println("err is", err)
+                        pvalue = 0
+                }
+        }
 
 	ch := make(chan *dbus.Message)
 	go watchDBusMethodCalls(ch)

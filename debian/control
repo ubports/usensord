@@ -6,6 +6,7 @@ Build-Depends: debhelper (>= 9),
                dh-golang,
                golang-go,
                golang-go-dbus-dev,
+               libapparmor-dev,
 Standards-Version: 3.9.5
 Homepage: http://launchpad.net/usensord
 Vcs-Bzr: lp:usensord
@@ -15,6 +16,7 @@ Package: usensord
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
+         libapparmor1,
 Built-Using: ${misc:Built-Using}
 Description: Ubuntu Touch Sensor Service
  Daemon that provides standard access to sensors for Ubuntu Touch
