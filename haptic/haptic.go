@@ -81,14 +81,14 @@ func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 
 		if msg.Interface == HAPTIC_DBUS_IFACE {
 			reply = handleHapticInterface(msg)
-                } else if msg.Interface == PROP_DBUS_IFACE {
-                        reply = handlePropInterface(msg)
-                } else {
+		} else if msg.Interface == PROP_DBUS_IFACE {
+			reply = handlePropInterface(msg)
+		} else {
 			reply = dbus.NewErrorMessage(
 				msg,
 				"org.freedesktop.DBus.Error.UnknownInterface",
 				fmt.Sprintf("No such interface '%s' at object path '%s'", msg.Interface, msg.Path))
-                }
+		}
 
 		if err := conn.Send(reply); err != nil {
 			logger.Println("Could not send reply:", err)
