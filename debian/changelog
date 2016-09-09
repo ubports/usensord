@@ -1,3 +1,10 @@
+usensord (1.1+16.10.20160823-0ubuntu2) vivid; urgency=medium
+
+  * Fix lp:1620553, Use another dbus connection to query senders' credentials.
+    We cannot do writing and reading simultaneously on the same connection.
+
+ -- enwei <enwei.zhang@canonical.com>  Fri, 09 Sep 2016 23:19:29 +0800
+
 usensord (1.1+16.10.20160823-0ubuntu1) yakkety; urgency=medium
 
   [ enwei ]

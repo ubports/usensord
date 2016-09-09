@@ -53,15 +53,17 @@ type Prop struct {
 }
 
 var (
-	conn   *dbus.Connection
-	sysbus *dbus.Connection
-	logger *log.Logger
-	wg     sync.WaitGroup
-	powerd *dbus.ObjectProxy
-	mutex  *sync.Mutex
-	cookie string
-	timer  *time.Timer
-        pvalue uint32
+        conn       *dbus.Connection
+        sesconn    *dbus.Connection
+        sysbus     *dbus.Connection
+        messageBus *dbus.ObjectProxy
+        logger     *log.Logger
+        wg         sync.WaitGroup
+        powerd     *dbus.ObjectProxy
+        mutex      *sync.Mutex
+        cookie     string
+        timer      *time.Timer
+        pvalue     uint32
         configFile string
 )
 
@@ -75,14 +77,13 @@ const (
 
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 	for msg := range msgChan {
-                logger.Println("msg sender", msg.Sender)
 		var reply *dbus.Message
 
 		if msg.Interface == HAPTIC_DBUS_IFACE {
 			reply = handleHapticInterface(msg)
-                } else if msg.Interface == PROP_DBUS_IFACE {
-                        reply = handlePropInterface(msg)
-                } else {
+		} else if msg.Interface == PROP_DBUS_IFACE {
+			reply = handlePropInterface(msg)
+		} else {
 			reply = dbus.NewErrorMessage(
 				msg,
 				"org.freedesktop.DBus.Error.UnknownInterface",
@@ -127,10 +128,8 @@ func handlePropInterface(msg *dbus.Message) (reply *dbus.Message) {
                             logger.Println("WriteFile error:", errwrite)
                         }
 
-                        //reply = dbus.NewSignalMessage("/com/canonical/usensord/haptic", HAPTIC_DBUS_IFACE, "Set")
                         reply = dbus.NewMethodReturnMessage(msg)
                         reply.AppendArgs(dbus.Variant{uint32(pvalue)})
-                        logger.Println("Set property to be ", pvalue)
                 } else {
                         reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", "interface or property not correct")
                 }
@@ -142,7 +141,6 @@ func handlePropInterface(msg *dbus.Message) (reply *dbus.Message) {
 }
 
 func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
-        messageBus := conn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")
         processreply, err := messageBus.Call("org.freedesktop.DBus", "GetConnectionCredentials", msg.Sender)
         if err != nil {
                 reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
@@ -154,11 +152,9 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
                 return reply
         }
         pid := credentials["ProcessID"].Value.(uint32)
-        logger.Printf("caller process id: %d", pid)
         var profile string
         ret, error := C.aa_is_enabled()
         if ret == 1 {
-                 logger.Println("aa_is_enabled")
                  label := credentials["LinuxSecurityLabel"].Value.([]interface{})
                  var bb []uint8
                  for _, f := range label {
@@ -167,7 +163,6 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
                  profile = strings.TrimSpace(string(bb))
                  //LinuxSecurityLabel ends with null
                  profile = profile[:len(profile)-1]
-                 logger.Println("caller process label:", profile)
         } else {
                 logger.Println("aa_is_enabled failed:", error)
                 profile = UNCONFINED_PROFILE
@@ -184,10 +179,8 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
                         logger.Printf("fail to read %s with error:", file, erreadexe.Error())
                 } else {
                         pname := strings.TrimSpace(string(exe))
-                        logger.Println("process name:", pname)
                         if pname == OSK_PROCESS_NAME  {
                                 isOSK = true
-                                logger.Println("OSK calling")
                         }
                 }
         }
@@ -200,7 +193,6 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
 	case "Vibrate":
 		var duration uint32
 		msg.Args(&duration)
-		logger.Printf("Received Vibrate() method call %d", duration)
 		if err := Vibrate(duration); err != nil {
 			reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
 		} else {
@@ -210,7 +202,6 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
 		var pattern []uint32
 		var repeat uint32
 		msg.Args(&pattern, &repeat)
-		logger.Print("Received VibratePattern() method call ", pattern, " ", repeat)
 		if err := VibratePattern(pattern, repeat); err != nil {
 			reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
 		} else {
@@ -259,11 +250,9 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 							logger.Println("Cannot request Powerd system power state: ", err)
 						} else {
 							if err := reply.Args(&cookie); err == nil {
-								logger.Println("Suspend blocker cookie: ", cookie)
 								timer = time.NewTimer(time.Duration(t + 1500) * time.Millisecond)
 								go func() {
 									<-timer.C
-									logger.Println("Clearing suspend blocker")
 									if cookie != "" {
 										powerd.Call("com.canonical.powerd", "clearSysState", string(cookie))
 										cookie = ""
@@ -303,17 +292,21 @@ func Init(log *log.Logger) (err error) {
 		logger.Fatal("Connection error:", err)
 		return err
 	}
-
+        if sesconn, err = dbus.Connect(dbus.SessionBus); err != nil {
+                logger.Fatal("Connection error:", err)
+                return err
+        }
 	name := conn.RequestName("com.canonical.usensord", dbus.NameFlagDoNotQueue)
-	logger.Printf("Successfully registered %s on the bus", name.Name)
+        logger.Printf("Successfully registered %s on the bus", name.Name)
 
 	powerd = sysbus.Object("com.canonical.powerd", "/com/canonical/powerd")
+        messageBus = sesconn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")
 	mutex = &sync.Mutex{}
+
         //save and load the property value
         u, err := user.Current()
         configPath := path.Join(u.HomeDir, ".config", "usensord")
         configFile = path.Join(u.HomeDir, ".config", "usensord", "prop.json")
-        log.Println("configFile:", configFile)
         os.MkdirAll(configPath, 0755)
         b, errread := ioutil.ReadFile(configFile)
         if errread != nil {
