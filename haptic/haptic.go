@@ -75,7 +75,6 @@ const (
 
 func watchDBusMethodCalls(msgChan <-chan *dbus.Message) {
 	for msg := range msgChan {
-                logger.Println("msg sender", msg.Sender)
 		var reply *dbus.Message
 
 		if msg.Interface == HAPTIC_DBUS_IFACE {
@@ -142,10 +141,16 @@ func handlePropInterface(msg *dbus.Message) (reply *dbus.Message) {
 }
 
 func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
+	logger.Println("handleHapticInterface")
+        logger.Println("handleHapticInterface msg sender:", msg.Sender)
         messageBus := conn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")
+	logger.Println("handleHapticInterface1")
         processreply, err := messageBus.Call("org.freedesktop.DBus", "GetConnectionCredentials", msg.Sender)
+	logger.Println("handleHapticInterface2")
         if err != nil {
+		logger.Println("handleHapticInterface3")
                 reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
+		logger.Println("handleHapticInterface4:%s", err.Error())	
                 return reply
         }
         var credentials map[string]dbus.Variant
