@@ -1,10 +1,10 @@
-usensord (1.1+16.10.20160928-0ubuntu2) vivid; urgency=medium
+usensord (1.1+16.10.20160928.1-0ubuntu1) yakkety; urgency=medium
 
   * Fix lp:1628042.
     Add telephony-service-approver and telephony-service-indicator
     as privileged caller to usensord.
 
- -- Zhang Enwei <enwei.zhang@canonical.com>  Wed, 28 Sep 2016 12:24:27 +0800
+ -- Zhang Enwei <zhangew401@126.com>  Wed, 28 Sep 2016 04:59:22 +0000
 
 usensord (1.1+16.10.20160909-0ubuntu1) yakkety; urgency=medium
 
