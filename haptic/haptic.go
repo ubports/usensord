@@ -72,6 +72,8 @@ const (
 	HAPTIC_DEVICE     = "/sys/class/timed_output/vibrator/enable"
         PROP_DBUS_IFACE = "org.freedesktop.DBus.Properties"
         OSK_PROCESS_NAME = "/usr/bin/maliit-server"
+        TSA_PROCESS_NAME = "/usr/bin/telephony-service-approver"
+        TSI_PROCESS_NAME = "/usr/bin/telephony-service-indicator"
         UNCONFINED_PROFILE = "unconfined"
 )
 
@@ -167,7 +169,7 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
                 logger.Println("aa_is_enabled failed:", error)
                 profile = UNCONFINED_PROFILE
         }
-        isOSK := false
+        isPrivileged := false
         if profile == UNCONFINED_PROFILE {
                 file := "/proc/" + strconv.FormatUint(uint64(pid), 10) + "/exe"
                 _, err := os.Lstat(file)
@@ -179,13 +181,12 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
                         logger.Printf("fail to read %s with error:", file, erreadexe.Error())
                 } else {
                         pname := strings.TrimSpace(string(exe))
-                        if pname == OSK_PROCESS_NAME  {
-                                isOSK = true
+                        if pname == OSK_PROCESS_NAME || pname == TSA_PROCESS_NAME || pname == TSI_PROCESS_NAME {
+                                isPrivileged = true
                         }
                 }
         }
-        if !isOSK && pvalue == 0 {
-                logger.Println("not vibrate since not osk and pvalue is 0")
+        if !isPrivileged && pvalue == 0 {
                 reply = dbus.NewMethodReturnMessage(msg)
                 return reply
         }
