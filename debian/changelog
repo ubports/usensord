@@ -1,3 +1,9 @@
+usensord (1.2+ubports) xenial; urgency=medium
+
+  * Imported to UBports
+
+ -- UBports auto importer <infra@ubports.com>  Mon, 15 Jan 2018 15:05:43 +0100
+
 usensord (1.1+16.10.20160928.1-0ubuntu1) yakkety; urgency=medium
 
   * Fix lp:1628042.
