@@ -95,9 +95,9 @@ func main() {
 	vibrateScale, err = strconv.Atoi(os.Getenv("VIBRATE_SCALE"))
 	if err != nil {
 		vibrateScale = 0
-		logger.Println("Using default vibrate scale of 0")
+		logger.Println("Using default vibrate duration")
 	} else {
-		logger.Println("Using custom vibrate scale of %d", uint32(vibrateScale))
+		logger.Println("Extending vibrate duration by ", uint32(vibrateScale), "ms")
 	}
 	err = haptic.Init(logger, uint32(vibrateScale))
 	if err != nil {
