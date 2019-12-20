@@ -282,7 +282,7 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 }
 
 // Init exposes the haptic device object path on the bus.
-func Init(log *log.Logger, uint32 scale) (err error) {
+func Init(log *log.Logger, scale uint32) (err error) {
 
 	logger = log
 	vibrateScale = scale
