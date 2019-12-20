@@ -99,7 +99,7 @@ func main() {
 	} else {
 		logger.Println("Using custom vibrate scale of %d", uint32(vibrateScale))
 	}
-	err = haptic.Init(logger, vibrateScale)
+	err = haptic.Init(logger, uint32(vibrateScale))
 	if err != nil {
 		logger.Println("Error starting haptic service")
 	}
