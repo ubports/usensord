@@ -89,7 +89,7 @@ func main() {
 
 	var (
 	err error
-	vibrateScale uint32
+	vibrateScale int
 )
 
 	vibrateScale, err = strconv.Atoi(os.Getenv("VIBRATE_SCALE"))
@@ -97,7 +97,7 @@ func main() {
 		vibrateScale = 0
 		logger.Println("Using default vibrate scale of 0")
 	} else {
-		logger.Println("Using custom vibrate scale of %d", vibrateScale)
+		logger.Println("Using custom vibrate scale of %d", uint32(vibrateScale))
 	}
 	err = haptic.Init(logger, vibrateScale)
 	if err != nil {
