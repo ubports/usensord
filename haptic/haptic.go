@@ -25,12 +25,12 @@ import (
         "encoding/json"
 	"fmt"
 	"log"
-        "io/ioutil"
+	"io/ioutil"
 	"os"
-        "os/user"
-        "path"
-        "strconv"
-        "strings"
+	"os/user"
+	"path"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -64,8 +64,8 @@ var (
         cookie     string
         timer      *time.Timer
         pvalue     uint32
-		configFile string
-		vibrateScale uint32
+        configFile string
+        vibrateScale uint32
 )
 
 const (

@@ -90,7 +90,7 @@ func main() {
 	var (
 	err error
 	vibrateScale int
-)
+	)
 
 	vibrateScale, err = strconv.Atoi(os.Getenv("VIBRATE_SCALE"))
 	if err != nil {
