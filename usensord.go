@@ -27,7 +27,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"strconv"
 )
 
 var logger *log.Logger
@@ -87,19 +86,7 @@ func init() {
 
 func main() {
 
-	var (
-	err error
-	vibrateScale int
-	)
-
-	vibrateScale, err = strconv.Atoi(os.Getenv("VIBRATE_SCALE"))
-	if err != nil {
-		vibrateScale = 0
-		logger.Println("Using default vibrate duration")
-	} else {
-		logger.Println("Extending vibrate duration by ", uint32(vibrateScale), "ms")
-	}
-	err = haptic.Init(logger, uint32(vibrateScale))
+	err := haptic.Init(logger)
 	if err != nil {
 		logger.Println("Error starting haptic service")
 	}
