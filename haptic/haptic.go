@@ -25,12 +25,12 @@ import (
         "encoding/json"
 	"fmt"
 	"log"
-        "io/ioutil"
+	"io/ioutil"
 	"os"
-        "os/user"
-        "path"
-        "strconv"
-        "strings"
+	"os/user"
+	"path"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,6 +65,7 @@ var (
         timer      *time.Timer
         pvalue     uint32
         configFile string
+        vibrateScale uint32
 )
 
 const (
@@ -194,7 +195,7 @@ func handleHapticInterface(msg *dbus.Message) (reply *dbus.Message) {
 	case "Vibrate":
 		var duration uint32
 		msg.Args(&duration)
-		if err := Vibrate(duration); err != nil {
+		if err := Vibrate(duration + vibrateScale); err != nil {
 			reply = dbus.NewErrorMessage(msg, "com.canonical.usensord.Error", err.Error())
 		} else {
 			reply = dbus.NewMethodReturnMessage(msg)
@@ -281,9 +282,10 @@ func VibratePattern(duration []uint32, repeat uint32) (err error) {
 }
 
 // Init exposes the haptic device object path on the bus.
-func Init(log *log.Logger) (err error) {
+func Init(log *log.Logger, scale uint32) (err error) {
 
 	logger = log
+	vibrateScale = scale
 	if conn, err = dbus.Connect(dbus.SessionBus); err != nil {
 		logger.Fatal("Connection error:", err)
 		return err
